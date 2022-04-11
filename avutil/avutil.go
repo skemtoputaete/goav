@@ -9,6 +9,7 @@ package avutil
 
 //#cgo pkg-config: libavutil
 //#include <libavutil/avutil.h>
+//#include <libavutil/audio_fifo.h>
 //#include <libavutil/channel_layout.h>
 //#include <libavutil/pixdesc.h>
 //#include <stdlib.h>
@@ -20,13 +21,15 @@ import (
 )
 
 type (
-	Options       C.struct_AVOptions
-	AvTree        C.struct_AVTree
-	Rational      C.struct_AVRational
-	MediaType     C.enum_AVMediaType
-	AvPictureType C.enum_AVPictureType
-	PixelFormat   C.enum_AVPixelFormat
-	File          C.FILE
+	Options        C.struct_AVOptions
+	AvTree         C.struct_AVTree
+	Rational       C.struct_AVRational
+	MediaType      C.enum_AVMediaType
+	AvPictureType  C.enum_AVPictureType
+	PixelFormat    C.enum_AVPixelFormat
+	AvSampleFormat C.enum_AVSampleFormat
+	File           C.FILE
+	AvAudioFifo    C.struct_AVAudioFifo
 )
 
 const (
@@ -44,6 +47,8 @@ const (
 	AVMEDIA_TYPE_SUBTITLE   = C.AVMEDIA_TYPE_SUBTITLE
 	AVMEDIA_TYPE_ATTACHMENT = C.AVMEDIA_TYPE_ATTACHMENT
 	AVMEDIA_TYPE_NB         = C.AVMEDIA_TYPE_NB
+	AVERROR_EXIT            = C.AVERROR_EXIT
+	AVERROR_ENOMEM          = -12
 )
 
 // MediaTypeFromString returns a media type from a string
@@ -105,6 +110,15 @@ func AvutilLicense() string {
 //Return a string describing the media_type enum, NULL if media_type is unknown.
 func AvGetMediaTypeString(mt MediaType) string {
 	return C.GoString(C.av_get_media_type_string((C.enum_AVMediaType)(mt)))
+}
+
+func AvAudioFifoAlloc(sampleFmt AvSampleFormat, channels int, nbSamples int) *AvAudioFifo {
+	avAudioFifo := C.av_audio_fifo_alloc((C.enum_AVSampleFormat)(sampleFmt), C.int(channels), C.int(nbSamples))
+	return (*AvAudioFifo)(avAudioFifo)
+}
+
+func AvGetDefaultChannelLayout(channels int) uint64 {
+	return uint64(C.av_get_default_channel_layout(C.int(channels)))
 }
 
 //Return a single letter to describe the given picture type pict_type.

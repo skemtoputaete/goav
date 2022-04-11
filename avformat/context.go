@@ -154,8 +154,8 @@ func (s *Context) AvformatWriteHeader(o **avutil.Dictionary) int {
 }
 
 //Write a packet to an output media file.
-func (s *Context) AvWriteFrame(pkt *Packet) int {
-	return int(C.av_write_frame((*C.struct_AVFormatContext)(s), (*C.struct_AVPacket)(pkt)))
+func (s *Context) AvWriteFrame(pkt *avcodec.Packet) int {
+	return int(C.av_write_frame((*C.struct_AVFormatContext)(s), (*C.struct_AVPacket)(unsafe.Pointer(pkt))))
 }
 
 //Write a packet to an output media file ensuring correct interleaving.

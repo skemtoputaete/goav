@@ -40,3 +40,9 @@ func SwresampleConfiguration() string {
 func SwresampleLicense() string {
 	return C.GoString(C.swresample_license())
 }
+
+func SwrAllocSetOpts(out_ch_layout int64, out_sample_fmt AvSampleFormat, out_sample_rate int,
+	in_ch_layout int64, in_sample_fmt AvSampleFormat, in_sample_rate int) *Context {
+
+	return (*Context)(C.swr_alloc_set_opts(nil, C.int64_t(out_ch_layout), C.enum_AVSampleFormat(out_sample_fmt), C.int(out_sample_rate), C.int64_t(in_ch_layout), C.enum_AVSampleFormat(in_sample_fmt), C.int(in_sample_rate), C.int(0), nil))
+}

@@ -96,6 +96,14 @@ func (f *Frame) SetSampleRate(r int) {
 	f.sample_rate = C.int(r)
 }
 
+func (f *Frame) ExtendedData() **uint8 {
+	return (**uint8)(unsafe.Pointer(f.extended_data))
+}
+
+func (f *Frame) GetDataP() **uint8 {
+	return (**uint8)(unsafe.Pointer(&f.data[0]))
+}
+
 // TODO Create getters and setters
 // https://ffmpeg.org/doxygen/4.0/structAVFrame.html
 /*

@@ -31,3 +31,12 @@ func AvGetSampleFmtName(sampleFmt int) string {
 func AvSamplesAlloc(data **uint8, linesize *int, nbChannels, nbSamples, sampleFmt, align int) int {
 	return int(C.av_samples_alloc((**C.uint8_t)(unsafe.Pointer(data)), (*C.int)(unsafe.Pointer(linesize)), C.int(nbChannels), C.int(nbSamples), (C.enum_AVSampleFormat)(sampleFmt), C.int(align)))
 }
+
+func AvSamplesAllocArrayAndSamples(data ***uint8, linesize *int, nbChannels, nbSamples, sampleFmt, align int) int {
+	return int(C.av_samples_alloc_array_and_samples((***C.uint8_t)(unsafe.Pointer(data)), (*C.int)(unsafe.Pointer(linesize)), C.int(nbChannels), C.int(nbSamples), (C.enum_AVSampleFormat)(sampleFmt), C.int(align)))
+}
+
+func AvSamplesFreeArrayAndSamples(audioData **uint8) {
+	C.av_freep(unsafe.Pointer(audioData))
+	C.av_free(unsafe.Pointer(audioData))
+}
