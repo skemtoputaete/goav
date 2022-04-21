@@ -1,3 +1,3 @@
-module github.com/asticode/goav
+module github.com/skemtoputaete/goav
 
-go 1.13
+go 1.17

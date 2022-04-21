@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/asticode/goav/avcodec"
-	"github.com/asticode/goav/avformat"
-	"github.com/asticode/goav/avutil"
-	"github.com/asticode/goav/swresample"
+	"github.com/skemtoputaete/goav/avcodec"
+	"github.com/skemtoputaete/goav/avformat"
+	"github.com/skemtoputaete/goav/avutil"
+	"github.com/skemtoputaete/goav/swresample"
 )
 
 const (
