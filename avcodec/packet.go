@@ -16,11 +16,6 @@ func AvPacketAlloc() *Packet {
 	return (*Packet)(C.av_packet_alloc())
 }
 
-//Initialize optional fields of a packet with default values.
-func (p *Packet) AvInitPacket() {
-	C.av_init_packet((*C.struct_AVPacket)(p))
-}
-
 //Allocate the payload of a packet and initialize its fields with default values.
 func (p *Packet) AvNewPacket(s int) int {
 	return int(C.av_new_packet((*C.struct_AVPacket)(p), C.int(s)))

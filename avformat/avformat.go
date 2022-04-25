@@ -53,6 +53,7 @@ type (
 	AvDurationEstimationMethod C.enum_AVDurationEstimationMethod
 	AvPacketSideDataType       C.enum_AVPacketSideDataType
 	CodecId                    C.enum_AVCodecID
+	CString                    C.char
 )
 
 const (

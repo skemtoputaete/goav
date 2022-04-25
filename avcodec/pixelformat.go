@@ -27,7 +27,3 @@ func AvcodecPixFmtToCodecTag(pix_fmt avutil.PixelFormat) uint {
 func AvcodecFindBestPixFmtOfList(pix_fmt_list *avutil.PixelFormat, src_pix_fmt avutil.PixelFormat, a int, l *int) avutil.PixelFormat {
 	return (avutil.PixelFormat)(C.avcodec_find_best_pix_fmt_of_list((*C.enum_AVPixelFormat)(pix_fmt_list), (C.enum_AVPixelFormat)(src_pix_fmt), C.int(a), (*C.int)(unsafe.Pointer(l))))
 }
-
-func AvcodecFindBestPixFmtOf2(dst1, dst2, src avutil.PixelFormat, a int, l *int) avutil.PixelFormat {
-	return (avutil.PixelFormat)(C.avcodec_find_best_pix_fmt_of_2((C.enum_AVPixelFormat)(dst1), (C.enum_AVPixelFormat)(dst2), (C.enum_AVPixelFormat)(src), C.int(a), (*C.int)(unsafe.Pointer(l))))
-}

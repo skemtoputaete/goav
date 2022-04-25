@@ -139,6 +139,10 @@ func (ctxt *Context) Flags() int {
 	return int(ctxt.flags)
 }
 
+func (ctxt *Context) AddFlag(flag int) {
+	ctxt.flags |= C.int(flag)
+}
+
 func (ctxt *Context) FlushPackets() int {
 	return int(ctxt.flush_packets)
 }
@@ -233,6 +237,10 @@ func (ctxt *Context) StartTime() int64 {
 
 func (ctxt *Context) StartTimeRealtime() int64 {
 	return int64(ctxt.start_time_realtime)
+}
+
+func (ctxt *Context) SetIformat(iformat *InputFormat) {
+	ctxt.iformat = (*C.struct_AVInputFormat)(iformat)
 }
 
 func (ctxt *Context) Iformat() *InputFormat {
