@@ -54,10 +54,6 @@ func ReadInfo(filename string) {
 
 	// Create AVIOContext
 	avio_ctx := avformat.AvioAllocContext(ifmt_ctx, packet_buf, avio_read_buffer, BUF_SIZE, 0)
-	defer func() {
-		// avutil.AvFreep(unsafe.Pointer(avio_ctx.))
-		// avformat.AvioContextFree(&avio_ctx)
-	}()
 	// Set AvIOContext to AVFormatContext
 	ifmt_ctx.SetPb(avio_ctx)
 

@@ -11,7 +11,6 @@ package avformat
 import "C"
 import (
 	"bytes"
-	"log"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
@@ -23,16 +22,15 @@ type AvioCustomBuffer struct {
 
 var ContextBufferMap = make(map[*Context]*AvioCustomBuffer)
 
-func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int) ([]byte, int) {
+func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int) ([]byte, int, int) {
 	result := make([]byte, n_bytes)
 	read_bytes, err := custom_buf.Buffer.Read(result)
 
 	if err != nil {
-		log.Println(err)
-		panic("Can't read data from buffer")
+		return nil, 0, avutil.AVERROR_EOF
 	}
 
-	return result, read_bytes
+	return result, read_bytes, 0
 }
 
 func (custom_buf *AvioCustomBuffer) WriteBuffer(data []byte) int {
@@ -63,7 +61,6 @@ func AvioAllocContext(fmt_ctx *Context, custom_buf *AvioCustomBuffer, buf *uint8
 }
 
 func AvioContextFree(avio_ctx **AvIOContext) {
-	log.Println("Free avio_ctx")
 	bfr_ptr := (*avio_ctx).buffer
 
 	avutil.AvFreep(unsafe.Pointer(bfr_ptr))
@@ -74,7 +71,11 @@ func AvioContextFree(avio_ctx **AvIOContext) {
 func read_buffer_cb(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_custom_buf := ContextBufferMap[ctx_ptr]
-	data, data_len := avio_custom_buf.ReadBuffer(int(buf_size))
+	data, data_len, ret := avio_custom_buf.ReadBuffer(int(buf_size))
+
+	if ret < 0 {
+		return C.int(ret)
+	}
 
 	if data_len >= 0 {
 		C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&data[0]), C.size_t(data_len))
