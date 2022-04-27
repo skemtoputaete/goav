@@ -57,10 +57,10 @@ func openInput(packet_buf *avformat.AvioCustomBuffer, avio_buf *uint8, buf_size 
 	avio_ctx := avformat.AvioAllocContext(ifmt_ctx, packet_buf, avio_buf, buf_size, 0)
 	// Set AvIOContext to AVFormatContext
 	ifmt_ctx.SetPb(avio_ctx)
+	ifmt_ctx.AddFlag(avformat.AVFMT_FLAG_CUSTOM_IO)
 	av_probe_data := initAvProbeData(avio_buf, buf_size, pd_filename)
 	// Set AVProbeData to AVFormatContext
 	ifmt_ctx.SetIformat(avformat.AvProbeInputFormat(av_probe_data, 1))
-	ifmt_ctx.AddFlag(avformat.AVFMT_FLAG_CUSTOM_IO)
 
 	if avformat.AvformatOpenInput(&ifmt_ctx, "", nil, nil) != 0 {
 		fmt.Fprintf(os.Stderr, "Unable to open input\n")
@@ -270,6 +270,7 @@ func decodeAudioFrame(frame *avutil.Frame, inputFormatCtx *avformat.Context, inp
 	ret = inputFormatCtx.AvReadFrame(packet)
 	if ret < 0 {
 		if ret == avutil.AVERROR_EOF {
+			log.Printf("[decodeAudioFrame] Read frame error %s \n", avutil.AvStrerr(ret))
 			finished = true
 		} else {
 			fmt.Fprintf(os.Stderr, "Could not read frame (error '%s')\n", avutil.AvStrerr(ret))
@@ -278,13 +279,15 @@ func decodeAudioFrame(frame *avutil.Frame, inputFormatCtx *avformat.Context, inp
 	}
 	ret = avcodec.AvcodecSendPacket(inputCodecCtx, packet)
 	if ret < 0 {
-		fmt.Fprintf(os.Stderr, "Could not send packet for decoding (error '%s')\n", avutil.AvStrerr(ret))
+		log.Printf("[decodeAudioFrame] Could not send packet for decoding (error '%s')\n", avutil.AvStrerr(ret))
 		return ret, false, false
 	}
 	ret = avcodec.AvcodecReceiveFrame(inputCodecCtx, frame)
 	if ret == avutil.AVERROR_EAGAIN {
+		log.Printf("[decodeAudioFrame] Decode frame error %s \n", avutil.AvStrerr(ret))
 		return 0, false, false
 	} else if ret == avutil.AVERROR_EOF {
+		log.Printf("[decodeAudioFrame] Decode frame error %s \n", avutil.AvStrerr(ret))
 		return 0, false, true
 	} else if ret < 0 {
 		fmt.Fprintf(os.Stderr, "Could not decode frame (error '%s')\n", avutil.AvStrerr(ret))
@@ -378,7 +381,6 @@ func loadEncodeAndWrite(fifo *avutil.AvAudioFifo, outputFormatCtx *avformat.Cont
 		return avutil.AVERROR_EXIT
 	}
 	ret, _ = encodeAudioFrame(outputFrame, outputFormatCtx, outputCodecCtx)
-	log.Println("Audio frame encoded")
 	if ret < 0 {
 		return ret
 	}
@@ -395,6 +397,7 @@ func encodeAudioFrame(frame *avutil.Frame, outputFormatCtx *avformat.Context, ou
 	}
 	ret := avcodec.AvcodecSendFrame(outputCodecCtx, frame)
 	if ret == avutil.AVERROR_EOF {
+		log.Printf("[encodeAudioFrame] send frame (%v) EOF \n", frame)
 		return 0, false
 	} else if ret < 0 {
 		fmt.Fprintf(os.Stderr, "Could not send packet for encoding (error '%s')\n", avutil.AvStrerr(ret))
@@ -402,8 +405,10 @@ func encodeAudioFrame(frame *avutil.Frame, outputFormatCtx *avformat.Context, ou
 	}
 	ret = avcodec.AvcodecReceivePacket(outputCodecCtx, outputPacket)
 	if ret == avutil.AVERROR_EAGAIN {
+		log.Println("[encodeAudioFrame] recieve packet EAGAIN")
 		return 0, false
 	} else if ret == avutil.AVERROR_EOF {
+		log.Println("[encodeAudioFrame] recieve packet EOF")
 		return 0, false
 	} else if ret < 0 {
 		fmt.Fprintf(os.Stderr, "Could not encode frame (error '%s')\n", avutil.AvStrerr(ret))
@@ -447,7 +452,7 @@ func TranscodeAudio(filename string) int {
 	temp_buffer := make([]byte, BUF_SIZE)
 
 	// Buffer for AVIOContext
-	avio_read_buffer := (*uint8)(avutil.AvMalloc(BUF_SIZE))
+	avio_read_buffer := (*uint8)(avutil.AvMalloc(BUF_SIZE + avcodec.AV_INPUT_BUFFER_PADDING_SIZE))
 	packet_buf := initPacketBuf(0)
 
 	// Fill buffers
@@ -471,7 +476,8 @@ func TranscodeAudio(filename string) int {
 
 	for {
 
-		log.Printf("Transcoding iteration: %d. Buffer length: %d \n", iteration, packet_buf.Buffer.Len())
+		log.Println("***************************************")
+		log.Printf("Transcoding iteration: %d. Buffer length: %d. Frame number: %d \n", iteration, packet_buf.Buffer.Len(), icodec_ctx.FrameNumber())
 
 		if iteration != 0 {
 			read_bytes, err := file_buffer.Read(temp_buffer)
@@ -482,8 +488,6 @@ func TranscodeAudio(filename string) int {
 			packet_buf.WriteBuffer(temp_buffer)
 			log.Printf("Read %d bytes from file. Buffer length %d \n", read_bytes, packet_buf.Buffer.Len())
 		}
-
-		// C.memcpy(unsafe.Pointer(avio_read_buffer), unsafe.Pointer(&temp_buffer[0]), C.size_t(BUF_SIZE))
 
 		ret, ofmt_ctx, ocodec_ctx := openOutputFile(fmt.Sprintf("chunk-%d.aac", iteration), icodec_ctx)
 		if ret < 0 {
@@ -507,31 +511,29 @@ func TranscodeAudio(filename string) int {
 		for {
 			finished := false
 			outputFrameSize := ocodec_ctx.FrameSize()
-			// fmt.Fprintf(os.Stdout, "Output frame size = %d \n", outputFrameSize)
-			// fmt.Fprintf(os.Stdout, "FIFO size = %d \n", fifo.AvAudioFifoSize())
 			for fifo.AvAudioFifoSize() < outputFrameSize {
 				ret, finished = readDecodeConvertAndStore(fifo, ifmt_ctx, icodec_ctx, ocodec_ctx, resampleCtx)
 				if ret < 0 {
 					os.Exit(-ret)
 				}
 				if finished {
-					fmt.Fprintf(os.Stdout, "Finish decoding \n")
+					log.Println("Finish decoding buffer part")
 					break
 				}
 			}
 			for fifo.AvAudioFifoSize() >= outputFrameSize ||
 				(finished && fifo.AvAudioFifoSize() > 0) {
-				log.Printf("Encode frames. Finished - %t", finished)
 				ret = loadEncodeAndWrite(fifo, ofmt_ctx, ocodec_ctx)
 				if ret < 0 {
 					return ret
 				}
 			}
 			if finished {
+				log.Println("Finish encode frames. Write encoded data")
 				dataWritten := true
 				for dataWritten {
-					log.Println("Write encoded data")
 					ret, dataWritten = encodeAudioFrame(nil, ofmt_ctx, ocodec_ctx)
+					log.Printf("Encode audio frames. Error: %d, written: %t \n", ret, dataWritten)
 					if ret < 0 {
 						return ret
 					}
@@ -547,6 +549,7 @@ func TranscodeAudio(filename string) int {
 		pb := ofmt_ctx.Pb()
 		avformat.AvIOClosep(&pb)
 		ofmt_ctx.AvformatFreeContext()
+		icodec_ctx.AvcodecFlushBuffers()
 
 		iteration += 1
 	}
