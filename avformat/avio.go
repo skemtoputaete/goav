@@ -5,12 +5,14 @@ package avformat
 //#include <stdlib.h>
 //#include <libavformat/avformat.h>
 //#include <libavformat/avio.h>
-//extern int read_buffer_cb(void*, uint8_t*, int);
+//extern int read_packet(void*, uint8_t*, int);
 //extern int write_buffer_cb(void*, uint8_t*, int);
 //extern int64_t seekCallBack(void*, int64_t, int);
 import "C"
 import (
 	"bytes"
+	"fmt"
+	"log"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
@@ -50,7 +52,7 @@ func AvioAllocContext(fmt_ctx *Context, custom_buf *AvioCustomBuffer, buf *uint8
 			C.int(buf_size),                 // Size of buffer
 			C.int(write_flag),               // Buffer userd for writing
 			unsafe.Pointer(fmt_ctx),         // Custom user specified data
-			(*[0]byte)(C.read_buffer_cb),    // Function for reading packets
+			(*[0]byte)(C.read_packet),       // Function for reading packets
 			nil,                             // Function for writing packets
 			nil,                             // Function for seeking
 		),
@@ -60,6 +62,10 @@ func AvioAllocContext(fmt_ctx *Context, custom_buf *AvioCustomBuffer, buf *uint8
 	return avio_context
 }
 
+func AvioFlush(avio_ctx *AvIOContext) {
+	C.avio_flush((*C.struct_AVIOContext)(avio_ctx))
+}
+
 func AvioContextFree(avio_ctx **AvIOContext) {
 	bfr_ptr := (*avio_ctx).buffer
 
@@ -67,11 +73,39 @@ func AvioContextFree(avio_ctx **AvIOContext) {
 	C.avio_context_free((**C.struct_AVIOContext)(unsafe.Pointer(avio_ctx)))
 }
 
-//export read_buffer_cb
-func read_buffer_cb(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
+func (avio_ctx *AvIOContext) Pos() int {
+	return int(avio_ctx.pos)
+}
+
+func (avio_ctx *AvIOContext) BufferSize() int {
+	return int(avio_ctx.buffer_size)
+}
+
+func (avio_ctx *AvIOContext) EofReached() int {
+	return int(avio_ctx.eof_reached)
+}
+
+func (avio_ctx *AvIOContext) Dump() string {
+	return fmt.Sprintf(
+		"AVIOContext dump: \n\t position: %d \n\t buffer size: %d \n\t eof: %d \n\t buf ptr: %d \n\t buf end: %d \n",
+		avio_ctx.Pos(),
+		avio_ctx.BufferSize(),
+		avio_ctx.EofReached(),
+		avio_ctx.buf_ptr,
+		avio_ctx.buf_end,
+	)
+}
+
+func AvioFeof(avio_ctx *AvIOContext) int {
+	return int(C.avio_feof((*C.struct_AVIOContext)(avio_ctx)))
+}
+
+//export read_packet
+func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_custom_buf := ContextBufferMap[ctx_ptr]
 	data, data_len, ret := avio_custom_buf.ReadBuffer(int(buf_size))
+	log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
 
 	if ret < 0 {
 		return C.int(ret)

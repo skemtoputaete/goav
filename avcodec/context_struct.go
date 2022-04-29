@@ -565,6 +565,10 @@ func (ctxt *Context) CodecDescriptor() *Descriptor {
 	return (*Descriptor)(ctxt.codec_descriptor)
 }
 
+func (ctxt *Context) Codec() *Codec {
+	return (*Codec)(ctxt.codec)
+}
+
 func (ctxt *Context) CodecId() CodecId {
 	return (CodecId)(ctxt.codec_id)
 }

@@ -444,7 +444,6 @@ func TranscodeAudio(infile, outfile string) int {
 		outputFrameSize := outputCodecCtx.FrameSize()
 		for fifo.AvAudioFifoSize() < outputFrameSize {
 			ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, outputCodecCtx, resampleCtx)
-			fmt.Fprintf(os.Stdout, "Current iteration: %d \n", iteration)
 			if ret < 0 {
 				os.Exit(-ret)
 			}

@@ -61,6 +61,10 @@ func (p *Packet) AvCopyPacketSideData(r *Packet) int {
 
 }
 
+func AvPacketUnref(p *Packet) {
+	C.av_packet_unref((*C.struct_AVPacket)(p))
+}
+
 //Free a packet.
 func AvPacketFree(p *Packet) {
 	var ptr *C.struct_AVPacket = (*C.struct_AVPacket)(p)

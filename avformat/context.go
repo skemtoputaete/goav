@@ -123,6 +123,10 @@ func (s *Context) AvReadFrame(pkt *avcodec.Packet) int {
 	return int(C.av_read_frame((*C.struct_AVFormatContext)(unsafe.Pointer(s)), (*C.struct_AVPacket)(unsafe.Pointer(pkt))))
 }
 
+func (s *Context) GenPTS() int {
+	return int(s.flags & C.AVFMT_FLAG_GENPTS)
+}
+
 //Seek to the keyframe at timestamp.
 func (s *Context) AvSeekFrame(st int, t int64, f int) int {
 	return int(C.av_seek_frame((*C.struct_AVFormatContext)(s), C.int(st), C.int64_t(t), C.int(f)))
