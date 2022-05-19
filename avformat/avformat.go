@@ -160,8 +160,11 @@ func AvformatAllocOutputContext2(ctx **Context, o *OutputFormat, fo, fi string) 
 		cfo = C.CString(fo)
 		defer C.free(unsafe.Pointer(cfo))
 	}
-	cfi := C.CString(fi)
-	defer C.free(unsafe.Pointer(cfi))
+	cfi := (*C.char)(nil)
+	if len(fi) > 0 {
+		cfi = C.CString(fi)
+		defer C.free(unsafe.Pointer(cfi))
+	}
 	return int(C.avformat_alloc_output_context2((**C.struct_AVFormatContext)(unsafe.Pointer(ctx)), (*C.struct_AVOutputFormat)(o), cfo, cfi))
 }
 
