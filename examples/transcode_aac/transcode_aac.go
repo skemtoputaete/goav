@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/skemtoputaete/goav/avcodec"
@@ -442,6 +443,7 @@ func TranscodeAudio(infile, outfile string) int {
 	for {
 		finished := false
 		outputFrameSize := outputCodecCtx.FrameSize()
+		log.Printf("Output frame size %d \n", outputFrameSize)
 		for fifo.AvAudioFifoSize() < outputFrameSize {
 			ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, outputCodecCtx, resampleCtx)
 			if ret < 0 {

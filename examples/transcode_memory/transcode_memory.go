@@ -31,7 +31,7 @@ const (
 	BUF_SIZE = 32768
 )
 
-var pts int64
+var pts int64 = 0
 
 func initPacketBuf(bufSize int) *avformat.AvioCustomBuffer {
 	// Buffer for read-callback
@@ -113,94 +113,7 @@ func openInput(packetBuffer *avformat.AvioCustomBuffer, avioBuf *uint8, bufSize 
 	return 0, inputFormatCtx, avCtx
 }
 
-func openOutputFile(filename string, inputCodecCtx *avcodec.Context) (int, *avformat.Context, *avcodec.Context) {
-	ret := 0
-
-	ofmtCtx := avformat.AvformatAllocContext()
-	if avformat.AvformatAllocOutputContext2(&ofmtCtx, nil, "", filename) != 0 {
-		fmt.Fprintf(os.Stderr, "Unable to alloc output context for %s\n", filename)
-		ret = avutil.AVERROR_ENOMEM
-		return ret, nil, nil
-	}
-	defer func() {
-		if ret < 0 {
-			ofmtCtx.AvformatFreeContext()
-		}
-	}()
-
-	pb := (*avformat.AvIOContext)(nil)
-	ret = avformat.AvIOOpen(&pb, filename, avformat.AVIO_FLAG_WRITE)
-	if ret < 0 {
-		fmt.Fprintf(os.Stderr, "Could not open output file '%s'\n", filename)
-		ret = avutil.AVERROR_EXIT
-		return ret, nil, nil
-	}
-	ofmtCtx.SetPb(pb)
-	defer func() {
-		if ret < 0 {
-			pb := ofmtCtx.Pb()
-			avformat.AvIOClosep(&pb)
-		}
-	}()
-
-	outputCodec := avcodec.AvcodecFindEncoder(avcodec.CodecId(avcodec.AV_CODEC_ID_AAC))
-	if outputCodec == nil {
-		fmt.Fprintf(os.Stderr, "Could not find an AAC encoder\n")
-		ret = avutil.AVERROR_EXIT
-		return ret, nil, nil
-	}
-	outStream := ofmtCtx.AvformatNewStream(nil)
-	if outStream == nil {
-		fmt.Fprintf(os.Stderr, "Could not reate new stream\n")
-		ret = avutil.AVERROR_ENOMEM
-		return ret, nil, nil
-	}
-	avCtx := outputCodec.AvcodecAllocContext3()
-	if avCtx == nil {
-		fmt.Fprintf(os.Stderr, "Could not allocate an encoding context\n")
-		ret = avutil.AVERROR_ENOMEM
-		return ret, nil, nil
-	}
-	defer func() {
-		if ret < 0 {
-			avcodec.AvcodecFreeContext(avCtx)
-		}
-	}()
-
-	/* Set the basic encoder parameters.
-	 * The input file's sample rate is used to avoid a sample rate conversion. */
-	avCtx.SetChannels(OUTPUT_CHANNELS)
-	avCtx.SetChannelLayout(avutil.AvGetDefaultChannelLayout(OUTPUT_CHANNELS))
-	avCtx.SetSampleRate(inputCodecCtx.SampleRate())
-	avCtx.SetSampleFmt(outputCodec.SampleFmts()[0])
-	avCtx.SetBitRate(OUTPUT_BIT_RATE)
-
-	/* Allow the use of the experimental AAC encoder. */
-	avCtx.SetStrictStdCompliance(avcodec.FF_COMPLIANCE_EXPERIMENTAL)
-
-	/* Set the sample rate for the container. */
-	outStream.SetTimeBase(avutil.NewRational(1, inputCodecCtx.SampleRate()))
-
-	/* Some container formats (like MP4) require global headers to be present.
-	 * Mark the encoder so that it behaves accordingly. */
-	if (ofmtCtx.Oformat().Flags() & avformat.AVFMT_GLOBALHEADER) != 0 {
-		avCtx.SetFlags(avCtx.Flags() | avcodec.AV_CODEC_FLAG_GLOBAL_HEADER)
-	}
-
-	if ret = avCtx.AvcodecOpen2(outputCodec, nil); ret < 0 {
-		fmt.Fprintf(os.Stderr, "Could not open output codec (error '%s')\n", avutil.AvStrerr(ret))
-		return ret, nil, nil
-	}
-	ret = avcodec.AvcodecParametersFromContext(outStream.CodecParameters(), avCtx)
-	if ret < 0 {
-		fmt.Fprintf(os.Stderr, "Could not initialize stream parameters\n")
-		return ret, nil, nil
-	}
-
-	return 0, ofmtCtx, avCtx
-}
-
-func openOutputFile2(inputCodecCtx *avcodec.Context) (int, *avformat.Context, *avcodec.Context) {
+func openOutputFile(inputCodecCtx *avcodec.Context) (int, *avformat.Context, *avcodec.Context) {
 	ret := 0
 
 	ofmtCtx := avformat.AvformatAllocContext()
@@ -270,6 +183,57 @@ func openOutputFile2(inputCodecCtx *avcodec.Context) (int, *avformat.Context, *a
 	}
 
 	return 0, ofmtCtx, avCtx
+}
+
+func createCodecCtx(avFmtCtx *avformat.Context, codecParameters *avcodec.CodecParameters, sampleRate int) (int, *avcodec.Context) {
+	ret := 0
+
+	outputCodec := avcodec.AvcodecFindEncoder(avcodec.CodecId(avcodec.AV_CODEC_ID_AAC))
+	if outputCodec == nil {
+		fmt.Fprintf(os.Stderr, "Could not find an AAC encoder\n")
+		ret = avutil.AVERROR_EXIT
+		return ret, nil
+	}
+	avCtx := outputCodec.AvcodecAllocContext3()
+	if avCtx == nil {
+		fmt.Fprintf(os.Stderr, "Could not allocate an encoding context\n")
+		ret = avutil.AVERROR_ENOMEM
+		return ret, nil
+	}
+	defer func() {
+		if ret < 0 {
+			avcodec.AvcodecFreeContext(avCtx)
+		}
+	}()
+
+	/* Set the basic encoder parameters.
+	 * The input file's sample rate is used to avoid a sample rate conversion. */
+	avCtx.SetChannels(OUTPUT_CHANNELS)
+	avCtx.SetChannelLayout(avutil.AvGetDefaultChannelLayout(OUTPUT_CHANNELS))
+	avCtx.SetSampleRate(sampleRate)
+	avCtx.SetSampleFmt(outputCodec.SampleFmts()[0])
+	avCtx.SetBitRate(OUTPUT_BIT_RATE)
+
+	/* Allow the use of the experimental AAC encoder. */
+	avCtx.SetStrictStdCompliance(avcodec.FF_COMPLIANCE_EXPERIMENTAL)
+
+	/* Some container formats (like MP4) require global headers to be present.
+	 * Mark the encoder so that it behaves accordingly. */
+	if (avFmtCtx.Oformat().Flags() & avformat.AVFMT_GLOBALHEADER) != 0 {
+		avCtx.SetFlags(avCtx.Flags() | avcodec.AV_CODEC_FLAG_GLOBAL_HEADER)
+	}
+
+	if ret = avCtx.AvcodecOpen2(outputCodec, nil); ret < 0 {
+		fmt.Fprintf(os.Stderr, "Could not open output codec (error '%s')\n", avutil.AvStrerr(ret))
+		return ret, nil
+	}
+	ret = avcodec.AvcodecParametersFromContext(codecParameters, avCtx)
+	if ret < 0 {
+		fmt.Fprintf(os.Stderr, "Could not initialize stream parameters\n")
+		return ret, nil
+	}
+
+	return 0, avCtx
 }
 
 func openFile(filename string, fmtCtx *avformat.Context) (int, *avformat.AvIOContext) {
@@ -568,10 +532,11 @@ func TranscodeAudio(filename string) int {
 	defer avformat.AvformatCloseInput(inputFormatCtx)
 	inputCodecCtx.AvcodecFlushBuffers()
 
-	ret, outputFormatCtx, outputCodecCtx := openOutputFile2(inputCodecCtx)
+	ret, outputFormatCtx, outputCodecCtx := openOutputFile(inputCodecCtx)
 	if ret < 0 {
 		return ret
 	}
+	log.Printf("Sample rate: %d \n", outputCodecCtx.SampleRate())
 
 	ret, fifo := initFifo(outputCodecCtx)
 	if ret < 0 {
@@ -588,14 +553,7 @@ func TranscodeAudio(filename string) int {
 	iteration := 0
 
 	for {
-
-		log.Println("***************************************")
-		log.Printf(
-			"Transcoding iteration: %d. Buffer length: %d. Frame: %d \n",
-			iteration,
-			packetBuffer.Buffer.Len(),
-			inputCodecCtx.FrameNumber(),
-		)
+		ret, octx := createCodecCtx(outputFormatCtx, inputFormatCtx.Streams()[0].CodecParameters(), inputCodecCtx.SampleRate())
 
 		if iteration != 0 {
 			read_bytes, err := fileBuffer.Read(tempBuffer)
@@ -625,7 +583,6 @@ func TranscodeAudio(filename string) int {
 		if ret < 0 {
 			return ret
 		}
-		avformat.AvioFeof(outputPb)
 		outputFormatCtx.SetPb(outputPb)
 
 		ret = writeOutputFileHeader(outputFormatCtx)
@@ -635,10 +592,10 @@ func TranscodeAudio(filename string) int {
 
 		for {
 			finished := false
-			outputFrameSize := outputCodecCtx.FrameSize()
+			outputFrameSize := octx.FrameSize()
 
 			for fifo.AvAudioFifoSize() < outputFrameSize {
-				ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, outputCodecCtx, resampleCtx)
+				ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, octx, resampleCtx)
 				if ret < 0 {
 					os.Exit(-ret)
 				}
@@ -650,25 +607,27 @@ func TranscodeAudio(filename string) int {
 
 			for fifo.AvAudioFifoSize() >= outputFrameSize ||
 				(finished && fifo.AvAudioFifoSize() > 0) {
-				ret = loadEncodeAndWrite(fifo, outputFormatCtx, outputCodecCtx)
+				ret = loadEncodeAndWrite(fifo, outputFormatCtx, octx)
 				if ret < 0 {
 					return ret
 				}
 			}
 
 			if finished {
+				flushEncoder(outputFormatCtx, outputCodecCtx)
 				break
 			}
 		}
 
 		if fileBuffer.Len() == 0 {
 			log.Println("[transcoding] Flush the encoder")
-			flushEncoder(outputFormatCtx, outputCodecCtx)
+			flushEncoder(outputFormatCtx, octx)
 		}
 
 		writeOutputFileTrailer(outputFormatCtx)
 		avformat.AvIOClosep(&outputPb)
 		inputCodecCtx.AvcodecFlushBuffers()
+		avcodec.AvcodecFreeContext(octx)
 
 		iteration += 1
 	}
