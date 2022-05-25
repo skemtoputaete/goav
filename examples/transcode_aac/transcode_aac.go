@@ -402,6 +402,17 @@ func writeOutputFileTrailer(outputFormatCtx *avformat.Context) int {
 	return 0
 }
 
+func openFile(filename string, fmtCtx *avformat.Context) (int, *avformat.AvIOContext) {
+	pb := (*avformat.AvIOContext)(nil)
+	ret := avformat.AvIOOpen(&pb, filename, avformat.AVIO_FLAG_WRITE)
+	if ret < 0 {
+		fmt.Fprintf(os.Stderr, "Could not open output file '%s'\n", filename)
+		ret = avutil.AVERROR_EXIT
+		return ret, nil
+	}
+	return 0, pb
+}
+
 func TranscodeAudio(infile, outfile string) int {
 	ret, inputFormatCtx, inputCodecCtx := openInputFile(infile)
 	if ret < 0 {
@@ -433,14 +444,30 @@ func TranscodeAudio(infile, outfile string) int {
 	}
 	defer fifo.AvAudioFifoFree()
 
-	ret = writeOutputFileHeader(outputFormatCtx)
-	if ret < 0 {
-		return ret
-	}
-	defer writeOutputFileTrailer(outputFormatCtx)
+	// ret = writeOutputFileHeader(outputFormatCtx)
+	// if ret < 0 {
+	// 	return ret
+	// }
+	// defer writeOutputFileTrailer(outputFormatCtx)
 
 	iteration := 0
+	ret, outputPb := openFile(fmt.Sprintf("chunk-%d.aac", iteration), outputFormatCtx)
+	outputFormatCtx.SetPb(outputPb)
+	ret = writeOutputFileHeader(outputFormatCtx)
+
 	for {
+		if iteration%100 == 0 {
+			writeOutputFileTrailer(outputFormatCtx)
+			avformat.AvIOClosep(&outputPb)
+			ret, outputPb := openFile(fmt.Sprintf("chunk-%d.aac", iteration), outputFormatCtx)
+			outputFormatCtx.SetPb(outputPb)
+			ret = writeOutputFileHeader(outputFormatCtx)
+
+			if ret < 0 {
+				return ret
+			}
+		}
+
 		finished := false
 		outputFrameSize := outputCodecCtx.FrameSize()
 		log.Printf("Output frame size %d \n", outputFrameSize)
@@ -472,6 +499,9 @@ func TranscodeAudio(infile, outfile string) int {
 		}
 		iteration += 1
 	}
+
+	writeOutputFileTrailer(outputFormatCtx)
+	avformat.AvIOClosep(&outputPb)
 	return 0
 }
 
