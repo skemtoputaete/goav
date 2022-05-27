@@ -505,8 +505,8 @@ func flushEncoder(outputFormatCtx *avformat.Context, outputCodecCtx *avcodec.Con
 	}
 }
 
-func TranscodeAudio(filename string) int {
-	file_data, err := os.ReadFile(filename)
+func TranscodeAudio(input_filename string, output_filename string) int {
+	file_data, err := os.ReadFile(input_filename)
 	if err != nil {
 		panic(err)
 	}
@@ -536,7 +536,6 @@ func TranscodeAudio(filename string) int {
 	if ret < 0 {
 		return ret
 	}
-	log.Printf("Sample rate: %d \n", outputCodecCtx.SampleRate())
 
 	ret, fifo := initFifo(outputCodecCtx)
 	if ret < 0 {
@@ -548,89 +547,55 @@ func TranscodeAudio(filename string) int {
 		return ret
 	}
 
-	log.Println("Start transcoding")
-
-	iteration := 0
+	ret, outputPb := openFile(output_filename, outputFormatCtx)
+	if ret < 0 {
+		return ret
+	}
+	outputFormatCtx.SetPb(outputPb)
+	writeOutputFileHeader(outputFormatCtx)
 
 	for {
-		ret, octx := createCodecCtx(outputFormatCtx, inputFormatCtx.Streams()[0].CodecParameters(), inputCodecCtx.SampleRate())
-
-		if iteration != 0 {
-			read_bytes, err := fileBuffer.Read(tempBuffer)
-			if err == io.EOF {
-				log.Println("[transcoding] File buffer fully flushed")
-				break
-			}
-
-			tempBuffer = tempBuffer[:read_bytes]
-			packetBuffer.WriteBuffer(tempBuffer)
-			log.Printf(
-				"[transcoding] Read %d bytes from file. AVIO custom buffer length: %d. Remaining file length: %d. Temp buffer length: %d \n",
-				read_bytes,
-				packetBuffer.Buffer.Len(),
-				fileBuffer.Len(),
-				len(tempBuffer),
-			)
+		read_bytes, err := fileBuffer.Read(tempBuffer)
+		if err == io.EOF && read_bytes == 0 {
+			break
 		}
 
-		if inputFormatCtx.Pb().EofReached() == 1 {
-			log.Println("[transcoding] AVIOContext reached EOF. Flush buffer")
-			// Comment line bellow to get more output frames. TODO: fix that
-			avformat.AvioFeof(inputFormatCtx.Pb())
-		}
-
-		ret, outputPb := openFile(fmt.Sprintf("chunk-%d.aac", iteration), outputFormatCtx)
-		if ret < 0 {
-			return ret
-		}
-		outputFormatCtx.SetPb(outputPb)
-
-		ret = writeOutputFileHeader(outputFormatCtx)
-		if ret < 0 {
-			return ret
-		}
-
-		for {
-			finished := false
-			outputFrameSize := octx.FrameSize()
-
-			for fifo.AvAudioFifoSize() < outputFrameSize {
-				ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, octx, resampleCtx)
-				if ret < 0 {
-					os.Exit(-ret)
-				}
-				if finished {
-					log.Println("[transcoding] Finish decoding buffer part")
-					break
-				}
-			}
-
-			for fifo.AvAudioFifoSize() >= outputFrameSize ||
-				(finished && fifo.AvAudioFifoSize() > 0) {
-				ret = loadEncodeAndWrite(fifo, outputFormatCtx, octx)
-				if ret < 0 {
-					return ret
-				}
-			}
-
-			if finished {
-				flushEncoder(outputFormatCtx, outputCodecCtx)
-				break
-			}
-		}
-
-		if fileBuffer.Len() == 0 {
-			log.Println("[transcoding] Flush the encoder")
-			flushEncoder(outputFormatCtx, octx)
-		}
-
-		writeOutputFileTrailer(outputFormatCtx)
-		avformat.AvIOClosep(&outputPb)
-		inputCodecCtx.AvcodecFlushBuffers()
-		avcodec.AvcodecFreeContext(octx)
-
-		iteration += 1
+		tempBuffer = tempBuffer[:read_bytes]
+		packetBuffer.WriteBuffer(tempBuffer)
 	}
+
+	for {
+		finished := false
+		outputFrameSize := outputCodecCtx.FrameSize()
+
+		for fifo.AvAudioFifoSize() < outputFrameSize {
+			ret, finished = readDecodeConvertAndStore(fifo, inputFormatCtx, inputCodecCtx, outputCodecCtx, resampleCtx)
+			if ret < 0 {
+				os.Exit(-ret)
+			}
+			if finished {
+				break
+			}
+		}
+
+		for fifo.AvAudioFifoSize() >= outputFrameSize ||
+			(finished && fifo.AvAudioFifoSize() > 0) {
+			ret = loadEncodeAndWrite(fifo, outputFormatCtx, outputCodecCtx)
+			if ret < 0 {
+				return ret
+			}
+		}
+
+		if finished {
+			break
+		}
+	}
+
+	inputCodecCtx.AvcodecFlushBuffers()
+	flushEncoder(outputFormatCtx, outputCodecCtx)
+	writeOutputFileTrailer(outputFormatCtx)
+	pb := outputFormatCtx.Pb()
+	avformat.AvIOClosep(&pb)
 
 	fifo.AvAudioFifoFree()
 	resampleCtx.SwrFree()
@@ -641,9 +606,9 @@ func TranscodeAudio(filename string) int {
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <input file>\n", os.Args[0])
+	if len(os.Args) != 3 {
+		fmt.Fprintf(os.Stderr, "Usage: %s <input file> <output_file>\n", os.Args[0])
 		os.Exit(1)
 	}
-	TranscodeAudio(os.Args[1])
+	TranscodeAudio(os.Args[1], os.Args[2])
 }

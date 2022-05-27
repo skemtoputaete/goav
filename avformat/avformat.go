@@ -85,6 +85,10 @@ func (ctxt *AvIOContext) AvAppendPacket(pkt *Packet, s int) int {
 	return int(C.av_append_packet((*C.struct_AVIOContext)(ctxt), (*C.struct_AVPacket)(pkt), C.int(s)))
 }
 
+func (f *InputFormat) Name() string {
+	return C.GoString(f.name)
+}
+
 func (f *InputFormat) AvRegisterInputFormat() {
 	panic("deprecated")
 	//C.av_register_input_format((*C.struct_AVInputFormat)(f))

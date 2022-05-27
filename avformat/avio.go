@@ -25,7 +25,15 @@ type AvioCustomBuffer struct {
 var ContextBufferMap = make(map[*Context]*AvioCustomBuffer)
 
 func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int) ([]byte, int, int) {
-	result := make([]byte, n_bytes)
+	if custom_buf.Buffer.Len() == 0 {
+		return nil, 0, avutil.AVERROR_EOF
+	}
+
+	bytes_to_read := n_bytes
+	if n_bytes > custom_buf.Buffer.Len() {
+		bytes_to_read = custom_buf.Buffer.Len()
+	}
+	result := make([]byte, bytes_to_read)
 	read_bytes, err := custom_buf.Buffer.Read(result)
 
 	if err != nil {
