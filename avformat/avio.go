@@ -18,11 +18,17 @@ import (
 	"github.com/skemtoputaete/goav/avutil"
 )
 
-type AvioCustomBuffer struct {
-	Buffer *bytes.Buffer
+type CustomIO interface {
+	ReadBuffer(n_bytes int) ([]byte, int, int)
+	WriteBuffer(data []byte) int
 }
 
-var ContextBufferMap = make(map[*Context]*AvioCustomBuffer)
+type AvioCustomBuffer struct {
+	Buffer *bytes.Buffer
+	CustomIO
+}
+
+var ContextBufferMap = make(map[*Context]CustomIO)
 
 func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int) ([]byte, int, int) {
 	if custom_buf.Buffer.Len() == 0 {
@@ -53,7 +59,7 @@ func (custom_buf *AvioCustomBuffer) WriteBuffer(data []byte) int {
 	return write_bytes
 }
 
-func AvioAllocContext(fmt_ctx *Context, custom_buf *AvioCustomBuffer, buf *uint8, buf_size int, write_flag int) *AvIOContext {
+func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_size int, write_flag int) *AvIOContext {
 	avio_context := (*AvIOContext)(
 		C.avio_alloc_context(
 			(*C.uchar)(unsafe.Pointer(buf)), // Pointer to buffer
@@ -76,7 +82,9 @@ func AvioFlush(avio_ctx *AvIOContext) {
 
 func AvioContextFree(avio_ctx **AvIOContext) {
 	bfr_ptr := (*avio_ctx).buffer
+	fmt_ctx := (*Context)((*avio_ctx).opaque)
 
+	delete(ContextBufferMap, fmt_ctx)
 	avutil.AvFreep(unsafe.Pointer(bfr_ptr))
 	C.avio_context_free((**C.struct_AVIOContext)(unsafe.Pointer(avio_ctx)))
 }
@@ -111,8 +119,8 @@ func AvioFeof(avio_ctx *AvIOContext) int {
 //export read_packet
 func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
-	avio_custom_buf := ContextBufferMap[ctx_ptr]
-	data, data_len, ret := avio_custom_buf.ReadBuffer(int(buf_size))
+	avio_cb := ContextBufferMap[ctx_ptr]
+	data, data_len, ret := avio_cb.ReadBuffer(int(buf_size))
 	log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
 
 	if ret < 0 {
@@ -129,8 +137,8 @@ func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 //export write_buffer_cb
 func write_buffer_cb(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
-	avio_custom_buf := ContextBufferMap[ctx_ptr]
-	avio_custom_buf.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size))
+	avio_cb := ContextBufferMap[ctx_ptr]
+	avio_cb.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size))
 
 	return 0
 }
