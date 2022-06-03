@@ -435,7 +435,10 @@ func loadEncodeAndWrite(fifo *avutil.AvAudioFifo, outputFormatCtx *avformat.Cont
 
 func encodeAudioFrame(frame *avutil.Frame, outputFormatCtx *avformat.Context, outputCodecCtx *avcodec.Context) (int, bool) {
 	outputPacket := avcodec.AvPacketAlloc()
-	defer avcodec.AvPacketFree(outputPacket)
+	defer func() {
+		avcodec.AvPacketUnref(outputPacket)
+		avcodec.AvPacketFree(outputPacket)
+	}()
 
 	if frame != nil {
 		frame.SetPts(pts)
@@ -465,6 +468,12 @@ func encodeAudioFrame(frame *avutil.Frame, outputFormatCtx *avformat.Context, ou
 		log.Printf("Could not write frame (error '%s')\n", avutil.AvStrerr(ret))
 		return ret, false
 	}
+	// packet_bytes := unsafe.Slice((*byte)(outputPacket.Data()), outputPacket.Size())
+	// _, err := file.Write(packet_bytes)
+	// if err != nil {
+	// 	log.Printf("Could not write frame (error '%s')\n", err)
+	// 	return -1, false
+	// }
 	return 0, true
 }
 
@@ -502,6 +511,13 @@ func flushEncoder(outputFormatCtx *avformat.Context, outputCodecCtx *avcodec.Con
 			break
 		}
 		ret = outputFormatCtx.AvWriteFrame(outputPacket)
+
+		// packet_bytes := unsafe.Slice((*byte)(outputPacket.Data()), outputPacket.Size())
+		// _, err := file.Write(packet_bytes)
+		// if err != nil {
+		// 	log.Printf("Could not write frame (error '%s')\n", err)
+		// 	ret = -1
+		// }
 	}
 }
 
@@ -547,10 +563,9 @@ func TranscodeAudio(input_filename string, output_filename string) int {
 		return ret
 	}
 
-	ret, outputPb := openFile(output_filename, outputFormatCtx)
-	if ret < 0 {
-		return ret
-	}
+	result_buffer := initPacketBuf(0)
+	avio_write_buf := (*uint8)(avutil.AvMalloc(BUF_SIZE + avcodec.AV_INPUT_BUFFER_PADDING_SIZE))
+	outputPb := avformat.AvioAllocContext(outputFormatCtx, result_buffer, avio_write_buf, BUF_SIZE, 1)
 	outputFormatCtx.SetPb(outputPb)
 	writeOutputFileHeader(outputFormatCtx)
 
@@ -594,13 +609,22 @@ func TranscodeAudio(input_filename string, output_filename string) int {
 	inputCodecCtx.AvcodecFlushBuffers()
 	flushEncoder(outputFormatCtx, outputCodecCtx)
 	writeOutputFileTrailer(outputFormatCtx)
-	pb := outputFormatCtx.Pb()
-	avformat.AvIOClosep(&pb)
 
 	fifo.AvAudioFifoFree()
 	resampleCtx.SwrFree()
 	avcodec.AvcodecFreeContext(outputCodecCtx)
 	outputFormatCtx.AvformatFreeContext()
+
+	res := make([]byte, result_buffer.Buffer.Len())
+	result_buffer.Buffer.Read(res)
+
+	output_file, err := os.Create("result.aac")
+	if err != nil {
+		return -1
+	}
+
+	output_file.Write(res)
+	output_file.Close()
 
 	return 0
 }

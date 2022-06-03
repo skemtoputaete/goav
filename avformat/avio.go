@@ -6,7 +6,7 @@ package avformat
 //#include <libavformat/avformat.h>
 //#include <libavformat/avio.h>
 //extern int read_packet(void*, uint8_t*, int);
-//extern int write_buffer_cb(void*, uint8_t*, int);
+//extern int write_packet(void*, uint8_t*, int);
 //extern int64_t seekCallBack(void*, int64_t, int);
 import "C"
 import (
@@ -53,21 +53,29 @@ func (custom_buf *AvioCustomBuffer) WriteBuffer(data []byte) int {
 	write_bytes, err := custom_buf.Buffer.Write(data)
 
 	if err != nil {
-		panic("Can't write data to buffer")
+		return 0
 	}
 
 	return write_bytes
 }
 
 func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_size int, write_flag int) *AvIOContext {
+	read_cb := (*[0]byte)(C.read_packet)
+	write_cb := (*[0]byte)(C.write_packet)
+	if write_flag == 0 {
+		write_cb = nil
+	} else {
+		read_cb = nil
+	}
+
 	avio_context := (*AvIOContext)(
 		C.avio_alloc_context(
 			(*C.uchar)(unsafe.Pointer(buf)), // Pointer to buffer
 			C.int(buf_size),                 // Size of buffer
 			C.int(write_flag),               // Buffer userd for writing
 			unsafe.Pointer(fmt_ctx),         // Custom user specified data
-			(*[0]byte)(C.read_packet),       // Function for reading packets
-			nil,                             // Function for writing packets
+			read_cb,                         // Function for reading packets
+			write_cb,                        // Function for writing packets
 			nil,                             // Function for seeking
 		),
 	)
@@ -127,18 +135,16 @@ func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 		return C.int(ret)
 	}
 
-	if data_len >= 0 {
+	if data_len > 0 {
 		C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&data[0]), C.size_t(data_len))
 	}
 
 	return C.int(data_len)
 }
 
-//export write_buffer_cb
-func write_buffer_cb(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
+//export write_packet
+func write_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_cb := ContextBufferMap[ctx_ptr]
-	avio_cb.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size))
-
-	return 0
+	return C.int(avio_cb.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size)))
 }
