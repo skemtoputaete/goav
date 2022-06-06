@@ -109,8 +109,11 @@ func AvfilterRegisterAll() {
 
 //Initialize a filter with the supplied parameters.
 func (ctx *Context) AvfilterInitStr(args string) int {
-	ca := C.CString(args)
-	defer C.free(unsafe.Pointer(ca))
+	ca := (*C.char)(nil)
+	if len(args) > 0 {
+		ca := C.CString(args)
+		defer C.free(unsafe.Pointer(ca))
+	}
 	return int(C.avfilter_init_str((*C.struct_AVFilterContext)(ctx), ca))
 }
 

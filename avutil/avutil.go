@@ -12,11 +12,19 @@ package avutil
 //#include <libavutil/audio_fifo.h>
 //#include <libavutil/channel_layout.h>
 //#include <libavutil/pixdesc.h>
+//#include <libavutil/error.h>
+//#include <libavutil/opt.h>
 //#include <stdlib.h>
 //#include <errno.h>
+/*
+static int AvOptSetIntList(void *obj, char *name, int val[], int term, int flags) {
+	return av_opt_set_int_list(obj, name, val, term, flags);
+}
+*/
 import "C"
 import (
 	"fmt"
+	"reflect"
 	"unsafe"
 )
 
@@ -40,15 +48,16 @@ const (
 var AV_TIME_BASE_Q Rational = NewRational(1, AV_TIME_BASE)
 
 const (
-	AVMEDIA_TYPE_UNKNOWN    = C.AVMEDIA_TYPE_UNKNOWN
-	AVMEDIA_TYPE_VIDEO      = C.AVMEDIA_TYPE_VIDEO
-	AVMEDIA_TYPE_AUDIO      = C.AVMEDIA_TYPE_AUDIO
-	AVMEDIA_TYPE_DATA       = C.AVMEDIA_TYPE_DATA
-	AVMEDIA_TYPE_SUBTITLE   = C.AVMEDIA_TYPE_SUBTITLE
-	AVMEDIA_TYPE_ATTACHMENT = C.AVMEDIA_TYPE_ATTACHMENT
-	AVMEDIA_TYPE_NB         = C.AVMEDIA_TYPE_NB
-	AVERROR_EXIT            = C.AVERROR_EXIT
-	AVERROR_ENOMEM          = -12
+	AVMEDIA_TYPE_UNKNOWN     = C.AVMEDIA_TYPE_UNKNOWN
+	AVMEDIA_TYPE_VIDEO       = C.AVMEDIA_TYPE_VIDEO
+	AVMEDIA_TYPE_AUDIO       = C.AVMEDIA_TYPE_AUDIO
+	AVMEDIA_TYPE_DATA        = C.AVMEDIA_TYPE_DATA
+	AVMEDIA_TYPE_SUBTITLE    = C.AVMEDIA_TYPE_SUBTITLE
+	AVMEDIA_TYPE_ATTACHMENT  = C.AVMEDIA_TYPE_ATTACHMENT
+	AVMEDIA_TYPE_NB          = C.AVMEDIA_TYPE_NB
+	AVERROR_EXIT             = C.AVERROR_EXIT
+	AVERROR_ENOMEM           = -12
+	AVERROR_FILTER_NOT_FOUND = C.AVERROR_FILTER_NOT_FOUND
 )
 
 // MediaTypeFromString returns a media type from a string
@@ -186,4 +195,24 @@ func AvStrerr(errcode int) string {
 		return fmt.Sprintf("unknown error with code %d", errcode)
 	}
 	return C.GoString(errbuf)
+}
+
+/*
+	https://golang.hotexamples.com/ru/examples/c/-/av_opt_set_bin/golang-av_opt_set_bin-function-examples.html
+*/
+
+func AvOptSetIntList(obj interface{}, name string, val []int, term int, flags int) int {
+	cn := C.CString(name)
+	defer C.free(unsafe.Pointer(cn))
+	obj_ptr := unsafe.Pointer(reflect.ValueOf(obj).Pointer())
+	return int(C.AvOptSetIntList(obj_ptr, cn, (*C.int)(unsafe.Pointer(&val[0])), C.int(term), C.int(flags)))
+}
+
+func AvOptSet(obj interface{}, name string, val string, flags int) int {
+	obj_ptr := unsafe.Pointer(reflect.ValueOf(obj).Pointer())
+	cn := C.CString(name)
+	defer C.free(unsafe.Pointer(cn))
+	cv := C.CString(val)
+	defer C.free(unsafe.Pointer(cv))
+	return int(C.av_opt_set(obj_ptr, cn, cv, C.int(flags)))
 }
