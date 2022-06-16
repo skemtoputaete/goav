@@ -9,6 +9,8 @@ package avfilter
 /*
 	#cgo pkg-config: libavfilter
 	#include <libavfilter/avfilter.h>
+	#include <libavfilter/buffersrc.h>
+	#include <libavfilter/buffersink.h>
 */
 import "C"
 import (
@@ -29,7 +31,10 @@ type (
 )
 
 const (
-	MAX_ARRAY_SIZE = 1<<29 - 1
+	MAX_ARRAY_SIZE                    = 1<<29 - 1
+	AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT = C.AV_BUFFERSRC_FLAG_NO_CHECK_FORMAT
+	AV_BUFFERSRC_FLAG_PUSH            = C.AV_BUFFERSRC_FLAG_PUSH
+	AV_BUFFERSRC_FLAG_KEEP_REF        = C.AV_BUFFERSRC_FLAG_KEEP_REF
 )
 
 //Return the LIBAvFILTER_VERSION_INT constant.
@@ -197,4 +202,20 @@ func (i *Input) SetNext(n *Input) {
 
 func (l *Link) TimeBase() avutil.Rational {
 	return *(*avutil.Rational)(unsafe.Pointer(&l.time_base))
+}
+
+func (c *Context) GetSampleRate() int {
+	return int(C.av_buffersink_get_sample_rate((*C.struct_AVFilterContext)(c)))
+}
+
+func (c *Context) GetChannelLayout() uint32 {
+	return uint32(C.av_buffersink_get_channel_layout((*C.struct_AVFilterContext)(c)))
+}
+
+func (c *Context) GetChannels() int {
+	return int(C.av_buffersink_get_channels((*C.struct_AVFilterContext)(c)))
+}
+
+func (c *Context) GetFormat() int {
+	return int(C.av_buffersink_get_format((*C.struct_AVFilterContext)(c)))
 }

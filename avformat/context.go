@@ -95,8 +95,8 @@ func (s *Context) AvformatFreeContext() {
 }
 
 //Add a new stream to a media file.
-func (s *Context) AvformatNewStream(c *AvCodec) *Stream {
-	return (*Stream)(C.avformat_new_stream((*C.struct_AVFormatContext)(s), (*C.struct_AVCodec)(c)))
+func (s *Context) AvformatNewStream(c *avcodec.Codec) *Stream {
+	return (*Stream)(C.avformat_new_stream((*C.struct_AVFormatContext)(s), (*C.struct_AVCodec)(unsafe.Pointer(c))))
 }
 
 func (s *Context) AvNewProgram(id int) *AvProgram {
@@ -114,7 +114,7 @@ func (s *Context) AvFindProgramFromStream(l *AvProgram, su int) *AvProgram {
 }
 
 //Find the "best" stream in the file.
-func AvFindBestStream(ic *Context, t MediaType, ws, rs int, c **AvCodec, f int) int {
+func AvFindBestStream(ic *Context, t MediaType, ws, rs int, c **avcodec.Codec, f int) int {
 	return int(C.av_find_best_stream((*C.struct_AVFormatContext)(ic), (C.enum_AVMediaType)(t), C.int(ws), C.int(rs), (**C.struct_AVCodec)(unsafe.Pointer(c)), C.int(f)))
 }
 
@@ -163,8 +163,8 @@ func (s *Context) AvWriteFrame(pkt *avcodec.Packet) int {
 }
 
 //Write a packet to an output media file ensuring correct interleaving.
-func (s *Context) AvInterleavedWriteFrame(pkt *Packet) int {
-	return int(C.av_interleaved_write_frame((*C.struct_AVFormatContext)(s), (*C.struct_AVPacket)(pkt)))
+func (s *Context) AvInterleavedWriteFrame(pkt *avcodec.Packet) int {
+	return int(C.av_interleaved_write_frame((*C.struct_AVFormatContext)(s), (*C.struct_AVPacket)(unsafe.Pointer(pkt))))
 }
 
 //Write a uncoded frame to an output media file.

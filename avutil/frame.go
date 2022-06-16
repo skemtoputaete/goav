@@ -18,6 +18,10 @@ type (
 	AvFrameSideDataType C.enum_AVFrameSideDataType
 )
 
+func (f *Frame) BestEffortTimestamp() int64 {
+	return int64(f.best_effort_timestamp)
+}
+
 func AvFrameGetBestEffortTimestamp(f *Frame) int64 {
 	panic("deprecated")
 	return 0

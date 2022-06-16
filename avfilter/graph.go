@@ -12,11 +12,8 @@ package avfilter
 import "C"
 import (
 	"unsafe"
-	"github.com/skemtoputaete/goav/avutil"
-)
 
-const (
-	AV_BUFFERSRC_FLAG_KEEP_REF = C.AV_BUFFERSRC_FLAG_KEEP_REF
+	"github.com/skemtoputaete/goav/avutil"
 )
 
 //Allocate a filter graph.
@@ -128,4 +125,8 @@ func (g *Graph) AvBuffersrcAddFrameFlags(cx *Context, frame *avutil.Frame, flags
 
 func (g *Graph) AvBuffersinkGetFrame(cx *Context, frame *avutil.Frame) int {
 	return int(C.av_buffersink_get_frame((*C.struct_AVFilterContext)(cx), (*C.struct_AVFrame)(unsafe.Pointer(frame))))
+}
+
+func (g *Graph) SetNbThreads(nb_threads int) {
+	g.nb_threads = C.int(nb_threads)
 }
