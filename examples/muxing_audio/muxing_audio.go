@@ -250,7 +250,7 @@ func InitGraph(ist1, ist2 *InputStream) (int, *avfilter.Graph) {
 		ist2.DecoderCtx.ChannelLayout(),
 	)
 
-	if ist1.DecoderCtx.SampleFmt() < ist2.DecoderCtx.SampleFmt() {
+	if ist1.DecoderCtx.SampleRate() < ist2.DecoderCtx.SampleRate() {
 		input1_cfg = fmt.Sprintf(
 			"%s [resample_out]; [resample_out] aresample=%d [in_1]",
 			input1_cfg,
@@ -258,15 +258,26 @@ func InitGraph(ist1, ist2 *InputStream) (int, *avfilter.Graph) {
 		)
 		input2_cfg = fmt.Sprintf(
 			"%s [in_2]",
+			input2_cfg,
 		)
-	} else if ist1.DecoderCtx.SampleFmt() > ist2.DecoderCtx.SampleFmt() {
+	} else if ist1.DecoderCtx.SampleRate() > ist2.DecoderCtx.SampleRate() {
 		input2_cfg = fmt.Sprintf(
-			"%s [resample_out]; [resample_out] aresample=%d [in_2]",
+			"%s [resample_out]; [resample_out] aresample@resampler=%d [in_2]",
 			input2_cfg,
 			ist1.DecoderCtx.SampleRate(),
 		)
 		input1_cfg = fmt.Sprintf(
 			"%s [in_1]",
+			input1_cfg,
+		)
+	} else {
+		input1_cfg = fmt.Sprintf(
+			"%s [in_1]",
+			input1_cfg,
+		)
+		input2_cfg = fmt.Sprintf(
+			"%s [in_2]",
+			input2_cfg,
 		)
 	}
 
