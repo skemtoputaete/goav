@@ -12,7 +12,6 @@ import "C"
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
@@ -129,7 +128,7 @@ func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_cb := ContextBufferMap[ctx_ptr]
 	data, data_len, ret := avio_cb.ReadBuffer(int(buf_size))
-	log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
+	// log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
 
 	if ret < 0 {
 		return C.int(ret)
