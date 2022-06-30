@@ -45,7 +45,10 @@ func ReadInfo(filename string) {
 	// Buffer for read-callback
 	avio_ctx_buffer := bytes.NewBuffer(make([]byte, BUF_SIZE))
 	// Custom buffer struct for read-callback
-	packet_buf := &avformat.AvioCustomBuffer{Buffer: avio_ctx_buffer}
+	packet_buf := &avformat.AvioCustomBuffer{
+		CopyBuf: make([]byte, BUF_SIZE),
+		Buffer:  avio_ctx_buffer,
+	}
 
 	// Fill buffers
 	file_buffer.Read(temp_buffer)

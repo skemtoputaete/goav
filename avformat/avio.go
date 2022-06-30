@@ -12,40 +12,43 @@ import "C"
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
 )
 
 type CustomIO interface {
-	ReadBuffer(n_bytes int) ([]byte, int, int)
+	ReadBuffer(n_bytes int, buf *C.uint8_t) (int, int)
 	WriteBuffer(data []byte) int
 }
 
 type AvioCustomBuffer struct {
-	Buffer *bytes.Buffer
+	CopyBuf []byte
+	Buffer  *bytes.Buffer
 	CustomIO
 }
 
 var ContextBufferMap = make(map[*Context]CustomIO)
 
-func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int) ([]byte, int, int) {
-	if custom_buf.Buffer.Len() == 0 {
-		return nil, 0, avutil.AVERROR_EOF
-	}
-
+func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int, buf *C.uint8_t) (int, int) {
 	bytes_to_read := n_bytes
 	if n_bytes > custom_buf.Buffer.Len() {
 		bytes_to_read = custom_buf.Buffer.Len()
 	}
-	result := make([]byte, bytes_to_read)
-	read_bytes, err := custom_buf.Buffer.Read(result)
 
-	if err != nil {
-		return nil, 0, avutil.AVERROR_EOF
+	if bytes_to_read == 0 {
+		return 0, avutil.AVERROR_EOF
 	}
 
-	return result, read_bytes, 0
+	read_bytes, err := custom_buf.Buffer.Read(custom_buf.CopyBuf)
+	if err != nil {
+		return 0, avutil.AVERROR_EOF
+	}
+
+	C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&custom_buf.CopyBuf[0]), C.size_t(bytes_to_read))
+
+	return read_bytes, 0
 }
 
 func (custom_buf *AvioCustomBuffer) WriteBuffer(data []byte) int {
@@ -127,15 +130,11 @@ func AvioFeof(avio_ctx *AvIOContext) int {
 func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_cb := ContextBufferMap[ctx_ptr]
-	data, data_len, ret := avio_cb.ReadBuffer(int(buf_size))
-	// log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
+	data_len, ret := avio_cb.ReadBuffer(int(buf_size), buf)
+	log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
 
 	if ret < 0 {
 		return C.int(ret)
-	}
-
-	if data_len > 0 {
-		C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&data[0]), C.size_t(data_len))
 	}
 
 	return C.int(data_len)

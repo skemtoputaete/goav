@@ -37,7 +37,10 @@ func initPacketBuf(bufSize int) *avformat.AvioCustomBuffer {
 	// Buffer for read-callback
 	avioCtxBuffer := bytes.NewBuffer(make([]byte, bufSize))
 	// Custom buffer struct for read-callback
-	return &avformat.AvioCustomBuffer{Buffer: avioCtxBuffer}
+	return &avformat.AvioCustomBuffer{
+		CopyBuf: make([]byte, BUF_SIZE),
+		Buffer:  avioCtxBuffer,
+	}
 }
 
 // Initialize AVProbeData for AVFormatContext
@@ -62,7 +65,8 @@ func openInput(packetBuffer *avformat.AvioCustomBuffer, avioBuf *uint8, bufSize 
 	// Set AVProbeData to AVFormatContext
 	inputFormatCtx.SetIformat(avformat.AvProbeInputFormat(avProbeData, 1))
 
-	if avformat.AvformatOpenInput(&inputFormatCtx, "", nil, nil) != 0 {
+	if ret = avformat.AvformatOpenInput(&inputFormatCtx, "", nil, nil); ret != 0 {
+		log.Println(avutil.AvStrerr(ret))
 		log.Println("Unable to open input")
 		ret = avutil.AVERROR_EXIT
 		return ret, nil, nil
