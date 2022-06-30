@@ -12,14 +12,13 @@ import "C"
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
 )
 
 type CustomIO interface {
-	ReadBuffer(n_bytes int, buf *C.uint8_t) (int, int)
+	ReadBuffer(n_bytes int, buf unsafe.Pointer) (int, int)
 	WriteBuffer(data []byte) int
 }
 
@@ -31,7 +30,7 @@ type AvioCustomBuffer struct {
 
 var ContextBufferMap = make(map[*Context]CustomIO)
 
-func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int, buf *C.uint8_t) (int, int) {
+func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int, buf unsafe.Pointer) (int, int) {
 	bytes_to_read := n_bytes
 	if n_bytes > custom_buf.Buffer.Len() {
 		bytes_to_read = custom_buf.Buffer.Len()
@@ -46,7 +45,7 @@ func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int, buf *C.uint8_t) (int
 		return 0, avutil.AVERROR_EOF
 	}
 
-	C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&custom_buf.CopyBuf[0]), C.size_t(bytes_to_read))
+	C.memcpy(buf, unsafe.Pointer(&custom_buf.CopyBuf[0]), C.size_t(bytes_to_read))
 
 	return read_bytes, 0
 }
@@ -130,8 +129,7 @@ func AvioFeof(avio_ctx *AvIOContext) int {
 func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
 	avio_cb := ContextBufferMap[ctx_ptr]
-	data_len, ret := avio_cb.ReadBuffer(int(buf_size), buf)
-	log.Printf("[read_packet] Read %d bytes (wanted %d) to AVFormatContext. Error: %s \n", data_len, buf_size, avutil.AvStrerr(ret))
+	data_len, ret := avio_cb.ReadBuffer(int(buf_size), unsafe.Pointer(buf))
 
 	if ret < 0 {
 		return C.int(ret)
