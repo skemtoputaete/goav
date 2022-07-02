@@ -97,11 +97,13 @@ func AvIOClosep(pb **AvIOContext) int {
 }
 
 func AvioContextFree(avio_ctx **AvIOContext) {
-	bfr_ptr := (*avio_ctx).buffer
 	fmt_ctx := (*Context)((*avio_ctx).opaque)
-
 	delete(ContextBufferMap, fmt_ctx)
-	avutil.AvFreep(unsafe.Pointer(bfr_ptr))
+
+	bfr_ptr := (*avio_ctx).buffer
+	if bfr_ptr != nil {
+		avutil.AvFreep(unsafe.Pointer(bfr_ptr))
+	}
 	C.avio_context_free((**C.struct_AVIOContext)(unsafe.Pointer(avio_ctx)))
 }
 
