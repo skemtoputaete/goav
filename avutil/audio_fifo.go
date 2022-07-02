@@ -14,6 +14,10 @@ func (a *AvAudioFifo) AvAudioFifoSize() int {
 	return int(C.av_audio_fifo_size((*C.struct_AVAudioFifo)(a)))
 }
 
+func (a *AvAudioFifo) AvAudioFifoSpace() int {
+	return int(C.av_audio_fifo_space((*C.struct_AVAudioFifo)(a)))
+}
+
 func (a *AvAudioFifo) AvAudioFifoWrite(data **uint8, nbSamples int) int {
 	return int(C.av_audio_fifo_write((*C.struct_AVAudioFifo)(a), (*unsafe.Pointer)(unsafe.Pointer(data)), C.int(nbSamples)))
 }

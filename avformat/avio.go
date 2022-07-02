@@ -89,6 +89,13 @@ func AvioFlush(avio_ctx *AvIOContext) {
 	C.avio_flush((*C.struct_AVIOContext)(avio_ctx))
 }
 
+//Close the resource accessed by the AVIOContext *s, free it and set the pointer pointing to it to NULL.
+func AvIOClosep(pb **AvIOContext) int {
+	fmt_ctx := (*Context)((*pb).opaque)
+	delete(ContextBufferMap, fmt_ctx)
+	return int(C.avio_closep((**C.struct_AVIOContext)(unsafe.Pointer(pb))))
+}
+
 func AvioContextFree(avio_ctx **AvIOContext) {
 	bfr_ptr := (*avio_ctx).buffer
 	fmt_ctx := (*Context)((*avio_ctx).opaque)

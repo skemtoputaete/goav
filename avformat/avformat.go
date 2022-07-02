@@ -220,11 +220,6 @@ func AvIOFlush(pb *AvIOContext) {
 	C.avio_flush((*C.struct_AVIOContext)(unsafe.Pointer(pb)))
 }
 
-//Close the resource accessed by the AVIOContext *s, free it and set the pointer pointing to it to NULL.
-func AvIOClosep(pb **AvIOContext) int {
-	return int(C.avio_closep((**C.struct_AVIOContext)(unsafe.Pointer(pb))))
-}
-
 //Open an input stream and read the header.
 func AvformatOpenInput(ps **Context, fi string, fmt *InputFormat, d **avutil.Dictionary) int {
 	cfi := C.CString(fi)

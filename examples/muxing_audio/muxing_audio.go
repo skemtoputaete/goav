@@ -47,7 +47,14 @@ type OutputStream struct {
 }
 
 func (ost *OutputStream) Close() {
-
+	avutil.AvFrameUnref(ost.FilteredFrame)
+	avutil.AvFrameFree(ost.FilteredFrame)
+	avcodec.AvPacketUnref(ost.EncodePacket)
+	avcodec.AvPacketFree(ost.EncodePacket)
+	avcodec.AvcodecFreeContext(ost.EncoderCtx)
+	pb := ost.FormatCtx.Pb()
+	avformat.AvIOClosep(&pb)
+	ost.FormatCtx.AvformatFreeContext()
 }
 
 func OpenInputFile(filename string) (int, *InputStream) {
