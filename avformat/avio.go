@@ -102,7 +102,7 @@ func AvioContextFree(avio_ctx **AvIOContext) {
 
 	bfr_ptr := (*avio_ctx).buffer
 	if bfr_ptr != nil {
-		avutil.AvFreep(unsafe.Pointer(bfr_ptr))
+		avutil.AvFreep(unsafe.Pointer(&bfr_ptr))
 	}
 	C.avio_context_free((**C.struct_AVIOContext)(unsafe.Pointer(avio_ctx)))
 }
