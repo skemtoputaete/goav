@@ -12,6 +12,7 @@ import "C"
 import (
 	"bytes"
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
@@ -28,7 +29,7 @@ type AvioCustomBuffer struct {
 	CustomIO
 }
 
-var ContextBufferMap = make(map[*Context]CustomIO)
+var ContextBufferMap sync.Map
 
 func (custom_buf *AvioCustomBuffer) ReadBuffer(n_bytes int, buf unsafe.Pointer) (int, int) {
 	bytes_to_read := n_bytes
@@ -80,7 +81,7 @@ func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_siz
 			nil,                             // Function for seeking
 		),
 	)
-	ContextBufferMap[fmt_ctx] = custom_buf
+	ContextBufferMap.Store(fmt_ctx, custom_buf)
 
 	return avio_context
 }
@@ -91,14 +92,12 @@ func AvioFlush(avio_ctx *AvIOContext) {
 
 //Close the resource accessed by the AVIOContext *s, free it and set the pointer pointing to it to NULL.
 func AvIOClosep(pb **AvIOContext) int {
-	fmt_ctx := (*Context)((*pb).opaque)
-	delete(ContextBufferMap, fmt_ctx)
 	return int(C.avio_closep((**C.struct_AVIOContext)(unsafe.Pointer(pb))))
 }
 
 func AvioContextFree(avio_ctx **AvIOContext) {
 	fmt_ctx := (*Context)((*avio_ctx).opaque)
-	delete(ContextBufferMap, fmt_ctx)
+	ContextBufferMap.Delete(fmt_ctx)
 
 	bfr_ptr := (*avio_ctx).buffer
 	if bfr_ptr != nil {
@@ -137,8 +136,13 @@ func AvioFeof(avio_ctx *AvIOContext) int {
 //export read_packet
 func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
-	avio_cb := ContextBufferMap[ctx_ptr]
-	data_len, ret := avio_cb.ReadBuffer(int(buf_size), unsafe.Pointer(buf))
+
+	var avio_ctx CustomIO
+	value, ok := ContextBufferMap.Load(ctx_ptr)
+	if ok {
+		avio_ctx = value.(CustomIO)
+	}
+	data_len, ret := avio_ctx.ReadBuffer(int(buf_size), unsafe.Pointer(buf))
 
 	if ret < 0 {
 		return C.int(ret)
@@ -150,6 +154,10 @@ func read_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 //export write_packet
 func write_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 	ctx_ptr := (*Context)(opaque)
-	avio_cb := ContextBufferMap[ctx_ptr]
+	var avio_cb CustomIO
+	value, ok := ContextBufferMap.Load(ctx_ptr)
+	if ok {
+		avio_cb = value.(CustomIO)
+	}
 	return C.int(avio_cb.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size)))
 }
