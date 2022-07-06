@@ -7,7 +7,7 @@ package avformat
 //#include <libavformat/avio.h>
 //extern int read_packet(void*, uint8_t*, int);
 //extern int write_packet(void*, uint8_t*, int);
-//extern int64_t seekCallBack(void*, int64_t, int);
+//extern int64_t seek(void*, int64_t, int);
 import "C"
 import (
 	"bytes"
@@ -16,6 +16,13 @@ import (
 	"unsafe"
 
 	"github.com/skemtoputaete/goav/avutil"
+)
+
+const (
+	SEEK_SET    = C.SEEK_SET
+	SEEK_CUR    = C.SEEK_CUR
+	SEEK_END    = C.SEEK_END
+	AVSEEK_SIZE = C.AVSEEK_SIZE
 )
 
 type CustomIO interface {
@@ -61,13 +68,17 @@ func (custom_buf *AvioCustomBuffer) WriteBuffer(data []byte) int {
 	return write_bytes
 }
 
-func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_size int, write_flag int) *AvIOContext {
+func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_size int, write_flag int, seekable bool) *AvIOContext {
 	read_cb := (*[0]byte)(C.read_packet)
 	write_cb := (*[0]byte)(C.write_packet)
+	seek_cb := (*[0]byte)(C.seek)
 	if write_flag == 0 {
 		write_cb = nil
 	} else {
 		read_cb = nil
+	}
+	if !seekable {
+		seek_cb = nil
 	}
 
 	avio_context := (*AvIOContext)(
@@ -78,7 +89,7 @@ func AvioAllocContext(fmt_ctx *Context, custom_buf CustomIO, buf *uint8, buf_siz
 			unsafe.Pointer(fmt_ctx),         // Custom user specified data
 			read_cb,                         // Function for reading packets
 			write_cb,                        // Function for writing packets
-			nil,                             // Function for seeking
+			seek_cb,                         // Function for seeking
 		),
 	)
 	ContextBufferMap.Store(fmt_ctx, custom_buf)
@@ -160,4 +171,18 @@ func write_packet(opaque unsafe.Pointer, buf *C.uint8_t, buf_size C.int) C.int {
 		avio_cb = value.(CustomIO)
 	}
 	return C.int(avio_cb.WriteBuffer(C.GoBytes(unsafe.Pointer(buf), buf_size)))
+}
+
+//export seek
+func seek(opaque unsafe.Pointer, pos C.int64_t, whence C.int) C.int64_t {
+	ctx_ptr := (*Context)(opaque)
+	var avio_cb CustomIO
+	value, ok := ContextBufferMap.Load(ctx_ptr)
+	if ok {
+		avio_cb = value.(CustomIO)
+	}
+	if seek_avio_cb, ok := avio_cb.(interface{ Seek(int, int) int }); ok {
+		return C.int64_t(seek_avio_cb.Seek(int(pos), int(whence)))
+	}
+	return avutil.AVERROR_EINVAL
 }

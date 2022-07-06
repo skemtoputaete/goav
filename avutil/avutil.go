@@ -58,6 +58,7 @@ const (
 	AVERROR_EXIT             = C.AVERROR_EXIT
 	AVERROR_ENOMEM           = -12
 	AVERROR_FILTER_NOT_FOUND = C.AVERROR_FILTER_NOT_FOUND
+	AVERROR_EINVAL           = -C.EINVAL
 )
 
 // MediaTypeFromString returns a media type from a string

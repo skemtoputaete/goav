@@ -57,7 +57,7 @@ func openInput(packetBuffer *avformat.AvioCustomBuffer, avioBuf *uint8, bufSize 
 
 	inputFormatCtx := avformat.AvformatAllocContext()
 	// Create AVIOContext
-	avio_ctx := avformat.AvioAllocContext(inputFormatCtx, packetBuffer, avioBuf, bufSize, 0)
+	avio_ctx := avformat.AvioAllocContext(inputFormatCtx, packetBuffer, avioBuf, bufSize, 0, false)
 	// Set AvIOContext to AVFormatContext
 	inputFormatCtx.SetPb(avio_ctx)
 	inputFormatCtx.AddFlag(avformat.AVFMT_FLAG_CUSTOM_IO)
@@ -569,7 +569,7 @@ func TranscodeAudio(input_filename string, output_filename string) int {
 
 	result_buffer := initPacketBuf(0)
 	avio_write_buf := (*uint8)(avutil.AvMalloc(BUF_SIZE + avcodec.AV_INPUT_BUFFER_PADDING_SIZE))
-	outputPb := avformat.AvioAllocContext(outputFormatCtx, result_buffer, avio_write_buf, BUF_SIZE, 1)
+	outputPb := avformat.AvioAllocContext(outputFormatCtx, result_buffer, avio_write_buf, BUF_SIZE, 1, false)
 	outputFormatCtx.SetPb(outputPb)
 	writeOutputFileHeader(outputFormatCtx)
 

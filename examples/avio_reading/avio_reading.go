@@ -56,7 +56,7 @@ func ReadInfo(filename string) {
 	packet_buf.WriteBuffer(temp_buffer)
 
 	// Create AVIOContext
-	avio_ctx := avformat.AvioAllocContext(ifmt_ctx, packet_buf, avio_read_buffer, BUF_SIZE, 0)
+	avio_ctx := avformat.AvioAllocContext(ifmt_ctx, packet_buf, avio_read_buffer, BUF_SIZE, 0, false)
 	// Set AvIOContext to AVFormatContext
 	ifmt_ctx.SetPb(avio_ctx)
 

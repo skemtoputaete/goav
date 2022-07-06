@@ -211,6 +211,10 @@ func (ctxt *Context) Duration() int64 {
 	return int64(ctxt.duration)
 }
 
+func (ctxt *Context) DurationSec() float64 {
+	return float64(ctxt.duration) / float64(avutil.AV_TIME_BASE)
+}
+
 func (ctxt *Context) MaxAnalyzeDuration2() int64 {
 	return int64(ctxt.max_analyze_duration)
 }
