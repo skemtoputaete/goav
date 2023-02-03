@@ -4,8 +4,14 @@
 package swresample
 
 /*
-	#cgo pkg-config: libswresample
+	#cgo pkg-config: libswresample libavutil
 	#include <libswresample/swresample.h>
+	#include <libavutil/opt.h>
+	#include <stdio.h>
+	#include <stdlib.h>
+	#include <inttypes.h>
+	#include <stdint.h>
+	#include <string.h>
 */
 import "C"
 import (
@@ -87,4 +93,10 @@ func (s *Context) SwrConvertFrame(o, i *Frame) int {
 //Configure or reconfigure the Context using the information provided by the AvFrames.
 func (s *Context) SwrConfigFrame(o, i *Frame) int {
 	return int(C.swr_config_frame((*C.struct_SwrContext)(s), (*C.struct_AVFrame)(o), (*C.struct_AVFrame)(i)))
+}
+
+func (s *Context) OptSetInt(opt string, value int, search_flags int) int {
+	opt_c := C.CString(opt)
+	defer C.free(unsafe.Pointer(opt_c))
+	return int(C.av_opt_set_int(unsafe.Pointer((*C.struct_SwrContext)(s)), opt_c, C.int64_t(value), C.int(search_flags)))
 }
