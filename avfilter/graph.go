@@ -127,6 +127,10 @@ func (g *Graph) AvBuffersinkGetFrame(cx *Context, frame *avutil.Frame) int {
 	return int(C.av_buffersink_get_frame((*C.struct_AVFilterContext)(cx), (*C.struct_AVFrame)(unsafe.Pointer(frame))))
 }
 
+func (g *Graph) AvBuffersinkGetFrameFlags(flags int) int {
+	return int(C.av_buffersink_get_frame_flags((*C.struct_AVFilterContext)(cx), (*C.struct_AVFrame)(unsafe.Pointer(frame)), C.int(flags)))
+}
+
 func (g *Graph) SetNbThreads(nb_threads int) {
 	g.nb_threads = C.int(nb_threads)
 }

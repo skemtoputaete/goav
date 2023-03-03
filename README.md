@@ -14,7 +14,7 @@ export LD_LIBRARY_PATH=$HOME/ffmpeg/lib
 export PKG_CONFIG_PATH=$LD_LIBRARY_PATH/pkgconfig/
 ```
 
-And then build C example with following command:
+And then build Go example with following command:
 ```bash
 go build example.go
 ```
