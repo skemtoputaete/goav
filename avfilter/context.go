@@ -19,3 +19,7 @@ func (c *Context) AvBuffersinkGetTimeBase() avutil.Rational {
 	time_base := C.av_buffersink_get_time_base((*C.struct_AVFilterContext)(c))
 	return *(*avutil.Rational)(unsafe.Pointer(&time_base))
 }
+
+func (c *Context) AvBuffersrcGetNbFailedRequests() uint {
+	return uint(C.av_buffersrc_get_nb_failed_requests((*C.struct_AVFilterContext)(c)))
+}

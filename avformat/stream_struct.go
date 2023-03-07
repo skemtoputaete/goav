@@ -3,9 +3,29 @@
 
 package avformat
 
-//#cgo pkg-config: libavformat
-//#include <libavformat/avformat.h>
-//#include <libavutil/rational.h>
+/*
+	#cgo pkg-config: libavformat libavcodec libavutil
+	#include <libavformat/avformat.h>
+	#include <libavcodec/avcodec.h>
+	#include <libavcodec/packet.h>
+	#include <libavutil/rational.h>
+
+	// Copying side data for packets from input stream to output
+	int copy_stream_side_data(AVStream *is, AVStream *os) {
+		int i = 0;
+		if (is->nb_side_data) {
+			for (i = 0; i < is->nb_side_data; i++) {
+				const AVPacketSideData *sd_src = &is->side_data[i];
+				uint8_t *dst_data = av_stream_new_side_data(os, sd_src->type, sd_src->size);
+				if (!dst_data) {
+					return AVERROR(ENOMEM);
+				}
+				memcpy(dst_data, sd_src->data, sd_src->size);
+			}
+		}
+		return 0;
+	}
+*/
 import "C"
 import (
 	"unsafe"
@@ -13,6 +33,10 @@ import (
 	"github.com/skemtoputaete/goav/avcodec"
 	"github.com/skemtoputaete/goav/avutil"
 )
+
+func CopyStreamSideData(is, os *Stream) int {
+	return int(C.copy_stream_side_data((*C.struct_AVStream)(unsafe.Pointer(is)), (*C.struct_AVStream)(unsafe.Pointer(os))))
+}
 
 func (avs *Stream) Codec() *CodecContext {
 	return (*CodecContext)(unsafe.Pointer(avs.codec))
