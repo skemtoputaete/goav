@@ -123,6 +123,10 @@ func (g *Graph) AvBuffersrcAddFrameFlags(cx *Context, frame *avutil.Frame, flags
 	return int(C.av_buffersrc_add_frame_flags((*C.struct_AVFilterContext)(cx), (*C.struct_AVFrame)(unsafe.Pointer(frame)), C.int(flags)))
 }
 
+func (g *Graph) AvBuffersrcClose(cx *Context, pts int64, flags int) int {
+	return int(C.av_buffersrc_close((*C.struct_AVFilterContext)(cx), C.int64_t(pts), C.uint(flags)))
+}
+
 func (g *Graph) AvBuffersinkGetFrame(cx *Context, frame *avutil.Frame) int {
 	return int(C.av_buffersink_get_frame((*C.struct_AVFilterContext)(cx), (*C.struct_AVFrame)(unsafe.Pointer(frame))))
 }
