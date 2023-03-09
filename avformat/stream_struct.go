@@ -94,6 +94,10 @@ func (avs *Stream) Discard() AvDiscard {
 	return AvDiscard(avs.discard)
 }
 
+func (avs *Stream) SetDiscard(discard int32) {
+	avs.discard = discard
+}
+
 func (avs *Stream) NeedParsing() AvStreamParseType {
 	return AvStreamParseType(avs.need_parsing)
 }
