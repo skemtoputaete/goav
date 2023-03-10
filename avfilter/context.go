@@ -23,3 +23,8 @@ func (c *Context) AvBuffersinkGetTimeBase() avutil.Rational {
 func (c *Context) AvBuffersrcGetNbFailedRequests() uint {
 	return uint(C.av_buffersrc_get_nb_failed_requests((*C.struct_AVFilterContext)(c)))
 }
+
+func (c *Context) AvBuffersinkSetFrameSize(frame_size uint) {
+	C.av_buffersink_set_frame_size((*C.struct_AVFilterContext)(c), C.uint(frame_size))
+	return
+}
